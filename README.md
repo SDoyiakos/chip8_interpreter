@@ -1,0 +1,1 @@
+This is a simple chip8 emulator/interpreter made in C.

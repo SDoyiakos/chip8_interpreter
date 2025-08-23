@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-void push(Stack* stack, uint16_t addr) {
+void push(struct Stack* stack, uint16_t addr) {
   if(stack->size == 0) {
-    stack->head = malloc(sizeof(StackEntry));
+    stack->head = malloc(sizeof(struct StackEntry));
     if(stack->head == NULL) { // Check if stack allocated
       exit(1);
     }
@@ -13,7 +13,7 @@ void push(Stack* stack, uint16_t addr) {
   }
 }
 
-uint16_t pop(Stack* stack) {
+uint16_t pop(struct Stack* stack) {
   uint16_t ret_val;
   if(stack->size > 0) {
     ret_val = (stack->head)->addr;
@@ -26,9 +26,9 @@ uint16_t pop(Stack* stack) {
   }
 }
 
-uint16_t seeHead(Stack* stack) {
+uint16_t seeHead(struct Stack* stack) {
   if(stack->size > 0) {
-    return head->addr;
+    return (stack->head)->addr;
   }
   else {
     return -1;
