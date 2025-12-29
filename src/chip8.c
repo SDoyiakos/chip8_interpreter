@@ -11,6 +11,19 @@
 #define STACK_LIMIT 10
 #define FONT_START 0x50
 
+#define FIRST_NIBBLE_MASK 0xF000
+#define SECOND_NIBBLE_MASK 0x0F00
+#define THIRD_NIBBLE_MASK 0x00F0
+#define FOURTH_NIBBLE_MASK 0x000F
+#define LAST_THREE_NIBBLE_MASK 0x0FFF
+#define SECOND_BYTE_MASK 0x00FF
+
+#define FIRST_NIBBLE_SHIFT(X) ( (X & FIRST_NIBBLE_MASK) >> 12)
+#define SECOND_NIBBLE_SHIFT(X) ( (X & SECOND_NIBBLE_MASK) >> 8)
+#define THIRD_NIBBLE_SHIFT(X) ( (X & THIRD_NIBBLE_MASK) >> 4)
+#define SECOND_BYTE_SHIFT(X) ( (X & SECOND_BYTE_MASK) )
+
+
 int display[DISPLAY_WIDTH][DISPLAY_HEIGHT]; 
 uint8_t memory[MEMORY_SIZE];
 uint16_t i;
@@ -95,15 +108,27 @@ void loadROM(FILE* rom_file) {
 }
 
 void initializeScreen() {
+  
   if(SDL_Init(SDL_INIT_EVERYTHING) != 0) {
     fprintf(stderr, SDL_GetError());
     exit(1);
   }
-  if(SDL_CreateWindow("Chip8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_WIDTH, DISPLAY_HEIGHT, 0) != 0) {
+  if( (screen.window = SDL_CreateWindow("Chip8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_WIDTH, DISPLAY_HEIGHT, 0)) == NULL) {
+    fprintf(stderr, SDL_GetError());
+    exit(1);
+  }
+
+  if( (screen.renderer = SDL_CreateRenderer(screen.window, -1, 0)) == NULL) {
     fprintf(stderr, SDL_GetError());
     exit(1);
   }
   
+  SDL_ShowWindow(screen.window);
+
+}
+
+void shutdownScreen() {
+  SDL_Quit();
 }
 
 int initializeChip8(char* rom_name) {
@@ -119,13 +144,64 @@ int initializeChip8(char* rom_name) {
     exit(1);
   }
   loadROM(rom_file);
+  initializeScreen();
   return 0;
+}
+
+void runLoop() {
+  uint16_t curr_inst;
+  int is_running = 1;
+  while(is_running) {
+    
+    SDL_Event event;
+    SDL_PollEvent(&event);
+    if( event.window.event == SDL_WINDOWEVENT_CLOSE) {
+      printf("Window close event\n");
+      is_running = 0;
+      continue;;
+    }
+
+
+    curr_inst = memory[pc] << 8;
+    curr_inst+= memory[pc+1];
+    pc+=2;
+    //printf("Curr Inst: 0x%x\n", curr_inst);
+
+    switch( FIRST_NIBBLE_SHIFT(curr_inst) ) {
+
+      case 0x0: // Execute Machine instr
+        if(curr_inst == 0x00E0) {
+          printf("Redraw inst\n");
+        }
+        break;
+
+      case 0x1: // Jump to addr NNN
+      
+        uint16_t addr = curr_inst & LAST_THREE_NIBBLE_MASK;
+        printf("Jump Instruction to addr: 0x%x\n", addr);
+        pc = addr;
+        break;
+
+      case 0x6:
+        
+        uint8_t register_index = SECOND_NIBBLE_SHIFT(curr_inst);
+        uint8_t value = SECOND_BYTE_SHIFT(curr_inst);
+        v[register_index] = value;
+        printf("Setting register[%d]: 0x%x\n", register_index, value);
+        break;
+
+      default:
+        printf("Unimplemented opcode\n");
+        break;
+    }
+
+    SDL_Delay(17);
+  }
+  shutdownScreen();
 }
 
 int main(int argc, char* argv[]) {
   initializeChip8(argv[1]);
-  for(int index = 0x200; index < 0x300; index++) {
-    printf("[0x%x]: 0x%x\n", index, memory[index]);
-  }
+  runLoop();
   return 0;
 }
