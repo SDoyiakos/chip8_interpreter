@@ -5,8 +5,8 @@
 #include <SDL2/SDL.h>
 
 #define MEMORY_SIZE 4096
-#define DISPLAY_HEIGHT 64
-#define DISPLAY_WIDTH 32
+#define DISPLAY_HEIGHT 32
+#define DISPLAY_WIDTH 64
 #define REGISTER_COUNT 16
 #define STACK_LIMIT 10
 #define FONT_START 0x50
@@ -29,6 +29,7 @@ uint8_t memory[MEMORY_SIZE];
 uint16_t i;
 uint16_t pc;
 uint8_t v[REGISTER_COUNT];
+uint8_t r_flag;
 uint8_t sound_timer;
 uint8_t delay_timer;
 
@@ -135,6 +136,7 @@ int initializeChip8(char* rom_name) {
   pc = 0x200;
   sound_timer = 0;
   delay_timer = 0;
+  r_flag = 0;
   initializeStack(stack);
   memcpy(&memory[FONT_START], font, sizeof(font));
 
@@ -158,7 +160,7 @@ void runLoop() {
     if( event.window.event == SDL_WINDOWEVENT_CLOSE) {
       printf("Window close event\n");
       is_running = 0;
-      continue;;
+      continue;
     }
 
 
@@ -167,8 +169,15 @@ void runLoop() {
     pc+=2;
     //printf("Curr Inst: 0x%x\n", curr_inst);
 
-    switch( FIRST_NIBBLE_SHIFT(curr_inst) ) {
 
+
+    uint8_t second_nibble = SECOND_NIBBLE_SHIFT(curr_inst);
+    uint8_t third_nibble = THIRD_NIBBLE_SHIFT(curr_inst);
+    uint8_t fourth_nibble = curr_inst & FOURTH_NIBBLE_MASK;
+    uint16_t second_byte = SECOND_BYTE_SHIFT(curr_inst);
+    uint16_t last_three_nibble = curr_inst & LAST_THREE_NIBBLE_MASK;
+    switch( FIRST_NIBBLE_SHIFT(curr_inst) ) {
+      
       case 0x0: // Execute Machine instr
         if(curr_inst == 0x00E0) {
           printf("Redraw inst\n");
@@ -177,17 +186,43 @@ void runLoop() {
 
       case 0x1: // Jump to addr NNN
       
-        uint16_t addr = curr_inst & LAST_THREE_NIBBLE_MASK;
-        printf("Jump Instruction to addr: 0x%x\n", addr);
-        pc = addr;
+        printf("Jump Instruction to addr: 0x%x\n", last_three_nibble);
+        pc = last_three_nibble;
         break;
 
       case 0x6:
         
-        uint8_t register_index = SECOND_NIBBLE_SHIFT(curr_inst);
-        uint8_t value = SECOND_BYTE_SHIFT(curr_inst);
-        v[register_index] = value;
-        printf("Setting register[%d]: 0x%x\n", register_index, value);
+        v[second_nibble] = second_byte;
+        printf("Setting register[%d]: 0x%x\n", second_nibble, second_byte);
+        break;
+
+      case 0x7:
+         
+        v[second_nibble]+=second_byte;
+
+        // Setting overflow
+        if(v[second_nibble] < second_byte) {
+          r_flag = 1;
+        }
+        break;
+
+      case 0x8:
+        switch(fourth_nibble) {
+          case 0x0:
+            v[second_nibble] = v[third_nibble];
+            break;
+          default:
+            printf("Unimplemented opcode\n");
+            break;
+        }
+        break;
+
+      case 0xA:
+        i = last_three_nibble;
+        printf("Setting index to: 0x%x\n", last_three_nibble);
+        break;
+
+      case 0xD: // Draw case
         break;
 
       default:
