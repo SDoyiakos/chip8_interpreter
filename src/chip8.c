@@ -7,6 +7,7 @@
 #define MEMORY_SIZE 4096
 #define DISPLAY_HEIGHT 32
 #define DISPLAY_WIDTH 64
+#define RENDER_SCALE 5
 #define REGISTER_COUNT 16
 #define STACK_LIMIT 10
 #define FONT_START 0x50
@@ -114,12 +115,18 @@ void initializeScreen() {
     fprintf(stderr, SDL_GetError());
     exit(1);
   }
-  if( (screen.window = SDL_CreateWindow("Chip8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_WIDTH, DISPLAY_HEIGHT, 0)) == NULL) {
+  if( (screen.window = SDL_CreateWindow("Chip8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_WIDTH * RENDER_SCALE, DISPLAY_HEIGHT * RENDER_SCALE, 0)) == NULL) {
     fprintf(stderr, SDL_GetError());
     exit(1);
   }
 
   if( (screen.renderer = SDL_CreateRenderer(screen.window, -1, 0)) == NULL) {
+    fprintf(stderr, SDL_GetError());
+    exit(1);
+  }
+
+  
+  if( SDL_RenderSetLogicalSize(screen.renderer, DISPLAY_WIDTH, DISPLAY_HEIGHT) != 0) {
     fprintf(stderr, SDL_GetError());
     exit(1);
   }
@@ -156,13 +163,14 @@ void runLoop() {
   while(is_running) {
     
     SDL_Event event;
-    SDL_PollEvent(&event);
-    if( event.window.event == SDL_WINDOWEVENT_CLOSE) {
-      printf("Window close event\n");
-      is_running = 0;
-      continue;
-    }
+    while(SDL_PollEvent(&event)) {
 
+      if( event.window.event == SDL_WINDOWEVENT_CLOSE) {
+        printf("Window close event\n");
+        is_running = 0;
+        continue;
+      }
+    }
 
     curr_inst = memory[pc] << 8;
     curr_inst+= memory[pc+1];
@@ -176,6 +184,11 @@ void runLoop() {
     uint8_t fourth_nibble = curr_inst & FOURTH_NIBBLE_MASK;
     uint16_t second_byte = SECOND_BYTE_SHIFT(curr_inst);
     uint16_t last_three_nibble = curr_inst & LAST_THREE_NIBBLE_MASK;
+    uint16_t draw_x;
+    uint16_t draw_y;
+    uint16_t draw_x_offset;
+    uint16_t draw_y_offset;
+    uint16_t sprite_data;
     switch( FIRST_NIBBLE_SHIFT(curr_inst) ) {
       
       case 0x0: // Execute Machine instr
@@ -223,6 +236,26 @@ void runLoop() {
         break;
 
       case 0xD: // Draw case
+      
+        draw_x = v[second_nibble] % DISPLAY_WIDTH;
+        draw_y = v[third_nibble] % DISPLAY_HEIGHT;
+        
+        for(int draw_row = 0; draw_row < fourth_nibble; draw_row++) {
+          sprite_data = memory[i + draw_row];
+          printf("Drawing: 0x%x\n", sprite_data);
+          draw_y_offset = draw_y + draw_row;
+          if(draw_y_offset >= DISPLAY_HEIGHT) { // Edge of screen
+            break;
+          }
+          
+          for(int draw_pixel_col = 0; draw_pixel_col < 8 && draw_x + draw_pixel_col < DISPLAY_WIDTH; draw_pixel_col++) {
+            draw_x_offset = draw_x + draw_pixel_col;
+            if(0x80 >>  draw_pixel_col & sprite_data ) {
+              display[draw_x_offset][draw_y_offset] ^= 1;
+            }
+            
+          }
+        }
         break;
 
       default:
@@ -230,7 +263,22 @@ void runLoop() {
         break;
     }
 
-    SDL_Delay(17);
+
+    SDL_RenderClear(screen.renderer);
+    for(int x_pixel = 0; x_pixel < DISPLAY_WIDTH; x_pixel++) {
+      for(int y_pixel = 0; y_pixel < DISPLAY_HEIGHT; y_pixel++) {
+        if(display[x_pixel][y_pixel]) {
+          SDL_SetRenderDrawColor(screen.renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+          SDL_RenderDrawPoint(screen.renderer, x_pixel, y_pixel);
+        }
+        else {
+          SDL_SetRenderDrawColor(screen.renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+          SDL_RenderDrawPoint(screen.renderer, x_pixel, y_pixel);
+        }
+      }
+    }
+    SDL_RenderPresent(screen.renderer);
+    SDL_Delay(1000);
   }
   shutdownScreen();
 }
