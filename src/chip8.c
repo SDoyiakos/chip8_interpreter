@@ -70,10 +70,10 @@ struct Stack initializeStack() {
   return stack;
 }
 
-int push(struct Stack stack, uint8_t value) {
+uint16_t push(struct Stack stack, uint16_t value) {
   if(stack.size < STACK_LIMIT) {
     stack.entries[stack.size] = value;
-    return (uint8_t)value;
+    return (uint16_t)value;
   }
   else {
     fprintf(stderr, "Error, pushing to full stack\n");
@@ -81,8 +81,8 @@ int push(struct Stack stack, uint8_t value) {
   }
 }
 
-uint8_t pop(struct Stack stack) {
-  uint8_t ret_val;
+uint16_t pop(struct Stack stack) {
+  uint16_t ret_val;
   if(stack.size == 0) {
     fprintf(stderr, "Error, popping from empty stack");
     ret_val = 0;
@@ -175,9 +175,6 @@ void runLoop() {
     curr_inst = memory[pc] << 8;
     curr_inst+= memory[pc+1];
     pc+=2;
-    //printf("Curr Inst: 0x%x\n", curr_inst);
-
-
 
     uint8_t second_nibble = SECOND_NIBBLE_SHIFT(curr_inst);
     uint8_t third_nibble = THIRD_NIBBLE_SHIFT(curr_inst);
@@ -206,7 +203,8 @@ void runLoop() {
         break;
 
       case 0x2:
-        
+        push(stack, pc);
+        pc = last_three_nibble;
         break;
 
       case 0x1: // Jump to addr NNN
