@@ -193,8 +193,20 @@ void runLoop() {
       
       case 0x0: // Execute Machine instr
         if(curr_inst == 0x00E0) {
-          printf("Redraw inst\n");
+          for(int x_pixel = 0; x_pixel < DISPLAY_WIDTH; x_pixel++) {
+            for(int y_pixel = 0; y_pixel < DISPLAY_HEIGHT; y_pixel++) {
+              display[x_pixel][y_pixel] = 0;
+            }
+          }
         }
+        else if(curr_inst == 0x00EE) {
+          pc = pop(stack);
+        }
+
+        break;
+
+      case 0x2:
+        
         break;
 
       case 0x1: // Jump to addr NNN
@@ -236,7 +248,7 @@ void runLoop() {
         break;
 
       case 0xD: // Draw case
-      
+        v[0xF] = 0;
         draw_x = v[second_nibble] % DISPLAY_WIDTH;
         draw_y = v[third_nibble] % DISPLAY_HEIGHT;
         
@@ -252,8 +264,10 @@ void runLoop() {
             draw_x_offset = draw_x + draw_pixel_col;
             if(0x80 >>  draw_pixel_col & sprite_data ) {
               display[draw_x_offset][draw_y_offset] ^= 1;
+              if(display[draw_x_offset][draw_y_offset] == 0) {
+                v[0xF] = 1;
+              }
             }
-            
           }
         }
         break;
@@ -278,7 +292,7 @@ void runLoop() {
       }
     }
     SDL_RenderPresent(screen.renderer);
-    SDL_Delay(1000);
+    SDL_Delay(16);
   }
   shutdownScreen();
 }
