@@ -186,10 +186,14 @@ void runLoop() {
     uint16_t draw_x_offset;
     uint16_t draw_y_offset;
     uint16_t sprite_data;
+
+    printf("Running instruction: ");
     switch( FIRST_NIBBLE_SHIFT(curr_inst) ) {
-      
       case 0x0: // Execute Machine instr
+
         if(curr_inst == 0x00E0) {
+          printf("Clear screen\n");
+
           for(int x_pixel = 0; x_pixel < DISPLAY_WIDTH; x_pixel++) {
             for(int y_pixel = 0; y_pixel < DISPLAY_HEIGHT; y_pixel++) {
               display[x_pixel][y_pixel] = 0;
@@ -197,30 +201,31 @@ void runLoop() {
           }
         }
         else if(curr_inst == 0x00EE) {
+          printf("Return from subroutine\n");
           pc = pop(stack);
         }
 
         break;
 
       case 0x2:
+        printf("Jump to subroutine at 0x%x\n", last_three_nibble);
         push(stack, pc);
         pc = last_three_nibble;
         break;
 
       case 0x1: // Jump to addr NNN
-      
-        printf("Jump Instruction to addr: 0x%x\n", last_three_nibble);
+        printf("Jump to addr at 0x%x\n", last_three_nibble);
+
         pc = last_three_nibble;
         break;
 
       case 0x6:
-        
+        printf("Setting register v[%d] to %d\n", second_nibble, second_byte);
         v[second_nibble] = second_byte;
-        printf("Setting register[%d]: 0x%x\n", second_nibble, second_byte);
         break;
 
       case 0x7:
-         
+        printf("Adding %d to v[%d]\n", second_byte, second_nibble);
         v[second_nibble]+=second_byte;
 
         // Setting overflow
@@ -232,6 +237,7 @@ void runLoop() {
       case 0x8:
         switch(fourth_nibble) {
           case 0x0:
+            printf("Set v[%d] to v[%d]\n", second_nibble, third_nibble);
             v[second_nibble] = v[third_nibble];
             break;
           default:
@@ -241,18 +247,18 @@ void runLoop() {
         break;
 
       case 0xA:
+        printf("Set i to %d\n", last_three_nibble);
         i = last_three_nibble;
-        printf("Setting index to: 0x%x\n", last_three_nibble);
         break;
 
       case 0xD: // Draw case
+        printf("Draw sprite at %d\n", i);
         v[0xF] = 0;
         draw_x = v[second_nibble] % DISPLAY_WIDTH;
         draw_y = v[third_nibble] % DISPLAY_HEIGHT;
         
         for(int draw_row = 0; draw_row < fourth_nibble; draw_row++) {
           sprite_data = memory[i + draw_row];
-          printf("Drawing: 0x%x\n", sprite_data);
           draw_y_offset = draw_y + draw_row;
           if(draw_y_offset >= DISPLAY_HEIGHT) { // Edge of screen
             break;
@@ -290,7 +296,7 @@ void runLoop() {
       }
     }
     SDL_RenderPresent(screen.renderer);
-    SDL_Delay(16);
+    SDL_Delay(1000);
   }
   shutdownScreen();
 }
