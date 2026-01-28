@@ -70,9 +70,10 @@ struct Stack initializeStack() {
   return stack;
 }
 
-uint16_t push(struct Stack stack, uint16_t value) {
+uint16_t push(uint16_t value) {
   if(stack.size < STACK_LIMIT) {
     stack.entries[stack.size] = value;
+    stack.size++;
     return (uint16_t)value;
   }
   else {
@@ -81,16 +82,16 @@ uint16_t push(struct Stack stack, uint16_t value) {
   }
 }
 
-uint16_t pop(struct Stack stack) {
+uint16_t pop() {
   uint16_t ret_val;
   if(stack.size == 0) {
     fprintf(stderr, "Error, popping from empty stack");
-    ret_val = 0;
+    ret_val = -1;
     return ret_val;
   }
   else {
-    ret_val = stack.entries[stack.size];
-    fprintf(stderr, "Error, popping from empty stack\n");
+    ret_val = stack.entries[stack.size - 1];
+    stack.size--;
     return ret_val;
   }
 }
@@ -200,17 +201,12 @@ void runLoop() {
             }
           }
         }
-        else if(curr_inst == 0x00EE) {
-          printf("Return from subroutine\n");
-          pc = pop(stack);
+        else if(curr_inst == 0x00EE) {     
+          printf("Return from subroutine "); 
+          pc = pop();
+          printf("to addr 0x%x\n", pc);
         }
 
-        break;
-
-      case 0x2:
-        printf("Jump to subroutine at 0x%x\n", last_three_nibble);
-        push(stack, pc);
-        pc = last_three_nibble;
         break;
 
       case 0x1: // Jump to addr NNN
@@ -218,6 +214,38 @@ void runLoop() {
 
         pc = last_three_nibble;
         break;
+
+      case 0x2:
+        printf("Jump to subroutine at 0x%x\n", last_three_nibble);
+        push(pc);
+        pc = last_three_nibble;
+        break;
+
+      case 0x3:
+        printf("Skip next instr if 0x%x == 0x%x\n", v[second_nibble], second_byte);
+        if(v[second_nibble] == second_byte) {
+          pc+=2;
+        }
+        break;
+
+      case 0x4:
+        printf("Skip next instr if 0x%x != 0x%x\n", v[second_nibble], second_byte);
+        if(v[second_nibble] != second_byte) {
+          pc+=2;
+        }
+        break;
+
+      case 0x5:
+        if(fourth_nibble == 0) {
+          printf("Skip next instr if v[%x] == v[%x]\n", second_nibble, third_nibble);
+          if(v[second_nibble] == v[third_nibble]) {
+            pc+=2;
+          }
+        }
+        else {
+          printf("Unimplemented opcode\n");
+        }
+        break;    
 
       case 0x6:
         printf("Setting register v[%d] to %d\n", second_nibble, second_byte);
@@ -246,8 +274,20 @@ void runLoop() {
         }
         break;
 
+      case 0x9:
+        if(fourth_nibble == 0) {
+          printf("Skip next instr if v[%x] != v[%x]\n", second_nibble, third_nibble);
+          if(v[second_nibble] != v[third_nibble]) {
+            pc+=2;
+          }
+        }
+        else {
+          printf("Error, invalid opcode\n");
+        }
+        break;
+
       case 0xA:
-        printf("Set i to %d\n", last_three_nibble);
+        printf("Set i to %x\n", last_three_nibble);
         i = last_three_nibble;
         break;
 
@@ -296,7 +336,7 @@ void runLoop() {
       }
     }
     SDL_RenderPresent(screen.renderer);
-    SDL_Delay(1000);
+    SDL_Delay(1);
   }
   shutdownScreen();
 }
