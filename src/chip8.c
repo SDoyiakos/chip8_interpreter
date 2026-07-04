@@ -290,6 +290,48 @@ void runLoop() {
 			}
 			v[second_nibble] = v[second_nibble] + v[third_nibble];
 			break;
+		  case 0x5:
+			printf("Set v[%d] = v[%d] - v[%d]",second_nibble, second_nibble, third_nibble);
+			if(v[second_nibble] >= v[third_nibble]) {
+				r_flag = 1;
+			}
+			else {
+				r_flag = 0;
+			}
+			v[second_nibble] = v[second_nibble] - v[third_nibble];
+			break;
+		  case 0x6:
+			printf("Shifting V[%d] to right", second_nibble);
+			v[second_nibble] = v[third_nibble];
+			if(v[second_nibble] & 1) {
+				r_flag = 1;
+			}
+			else {
+				r_flag = 0;
+			}
+			v[second_nibble] = v[second_nibble] >> 1;
+			break;
+		  case 0x7:
+			printf("Set v[%d] = v[%d] - v[%d]",second_nibble, third_nibble, second_nibble);
+			if(v[third_nibble] >= v[second_nibble]) {
+				r_flag = 1;
+			}
+			else {
+				r_flag = 0;
+			}
+			v[second_nibble] = v[third_nibble] - v[second_nibble];
+			break;
+		  case 0xE:
+			printf("Shifting V[%d] to left", second_nibble);
+			v[second_nibble] = v[third_nibble];
+			if(v[second_nibble] & 0x80) {
+				r_flag = 1;
+			}
+			else {
+				r_flag = 0;
+			}
+			v[second_nibble] = v[second_nibble] << 1;
+			break;
           default:
             printf("Unimplemented opcode\n");
             break;
