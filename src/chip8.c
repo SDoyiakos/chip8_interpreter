@@ -268,6 +268,28 @@ void runLoop() {
             printf("Set v[%d] to v[%d]\n", second_nibble, third_nibble);
             v[second_nibble] = v[third_nibble];
             break;
+		  case 0x1:
+			printf("Set v[%d] to v[%d] | v[%d]", second_nibble, second_nibble, third_nibble);
+			v[second_nibble] = v[second_nibble] | v[third_nibble];
+			break;
+		  case 0x2:
+			printf("Set v[%d] to v[%d] & v[%d]", second_nibble, second_nibble, third_nibble);
+			v[second_nibble] = v[second_nibble] & v[third_nibble];
+			break;
+		  case 0x3:
+			printf("Set v[%d] to v[%d] ^ v[%d]", second_nibble, second_nibble, third_nibble);
+			v[second_nibble] = v[second_nibble] ^ v[third_nibble];
+			break;
+		  case 0x4:
+			printf("Set v[%d] = v[%d] + v[%d]",second_nibble, second_nibble, third_nibble);
+			if((uint16_t)v[second_nibble] + (uint16_t)v[third_nibble] > 255) {
+				r_flag = 1;				
+			}
+			else {
+				r_flag = 0;
+			}
+			v[second_nibble] = v[second_nibble] + v[third_nibble];
+			break;
           default:
             printf("Unimplemented opcode\n");
             break;
