@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <SDL2/SDL.h>
+#include <time.h>
 
 #define MEMORY_SIZE 4096
 #define DISPLAY_HEIGHT 32
@@ -30,7 +31,6 @@ uint8_t memory[MEMORY_SIZE];
 uint16_t i;
 uint16_t pc;
 uint8_t v[REGISTER_COUNT];
-uint8_t r_flag;
 uint8_t sound_timer;
 uint8_t delay_timer;
 
@@ -141,10 +141,13 @@ void shutdownScreen() {
 }
 
 int initializeChip8(char* rom_name) {
+
+  srand(time(NULL));
+		  
   pc = 0x200;
   sound_timer = 0;
   delay_timer = 0;
-  r_flag = 0;
+  v[0xF] = 0;
   initializeStack(stack);
   memcpy(&memory[FONT_START], font, sizeof(font));
 
@@ -158,6 +161,12 @@ int initializeChip8(char* rom_name) {
   return 0;
 }
 
+void printRegisters() {
+
+	printf("v[0]: 0x%x v[1]: 0x%x v[2]: 0x%x v[3]: 0x%x\nv[4]: 0x%x v[5]: 0x%x v[6]: 0x%x v[7]: 0x%x\nv[8]: 0x%x v[9]: 0x%x v[A]: 0x%x v[B]: 0x%x\nv[C]: 0x%x v[D]: 0x%x v[E]: 0x%x v[F]: 0x%x\n", v[0], v[1], v[2], v[3], v[4], v[5], v[6] ,v[7], v[8], v[9], v[0xA], v[0xB], v[0xC], v[0xD], v[0xE], v[0xF]);
+	printf("PC: 0x%x I: 0x%x Sound: 0x%x, Delay: 0x%x\n", pc, i, sound_timer, delay_timer);
+}
+
 void runLoop() {
   uint16_t curr_inst;
   int is_running = 1;
@@ -167,7 +176,6 @@ void runLoop() {
     while(SDL_PollEvent(&event)) {
 
       if( event.window.event == SDL_WINDOWEVENT_CLOSE) {
-        printf("Window close event\n");
         is_running = 0;
         continue;
       }
@@ -188,7 +196,7 @@ void runLoop() {
     uint16_t draw_y_offset;
     uint16_t sprite_data;
 
-    printf("Running instruction: ");
+    printf("Running instruction: 0x%x\n", curr_inst);
     switch( FIRST_NIBBLE_SHIFT(curr_inst) ) {
       case 0x0: // Execute Machine instr
 
@@ -258,7 +266,7 @@ void runLoop() {
 
         // Setting overflow
         if(v[second_nibble] < second_byte) {
-          r_flag = 1;
+          v[0xF] = 1;
         }
         break;
 
@@ -283,20 +291,20 @@ void runLoop() {
 		  case 0x4:
 			printf("Set v[%d] = v[%d] + v[%d]",second_nibble, second_nibble, third_nibble);
 			if((uint16_t)v[second_nibble] + (uint16_t)v[third_nibble] > 255) {
-				r_flag = 1;				
+				v[0xF] = 1;				
 			}
 			else {
-				r_flag = 0;
+				v[0xF] = 0;
 			}
 			v[second_nibble] = v[second_nibble] + v[third_nibble];
 			break;
 		  case 0x5:
 			printf("Set v[%d] = v[%d] - v[%d]",second_nibble, second_nibble, third_nibble);
 			if(v[second_nibble] >= v[third_nibble]) {
-				r_flag = 1;
+				v[0xF] = 1;
 			}
 			else {
-				r_flag = 0;
+				v[0xF] = 0;
 			}
 			v[second_nibble] = v[second_nibble] - v[third_nibble];
 			break;
@@ -304,20 +312,20 @@ void runLoop() {
 			printf("Shifting V[%d] to right", second_nibble);
 			v[second_nibble] = v[third_nibble];
 			if(v[second_nibble] & 1) {
-				r_flag = 1;
+				v[0xF] = 1;
 			}
 			else {
-				r_flag = 0;
+				v[0xF] = 0;
 			}
 			v[second_nibble] = v[second_nibble] >> 1;
 			break;
 		  case 0x7:
 			printf("Set v[%d] = v[%d] - v[%d]",second_nibble, third_nibble, second_nibble);
 			if(v[third_nibble] >= v[second_nibble]) {
-				r_flag = 1;
+				v[0xF] = 1;
 			}
 			else {
-				r_flag = 0;
+				v[0xF] = 0;
 			}
 			v[second_nibble] = v[third_nibble] - v[second_nibble];
 			break;
@@ -325,10 +333,10 @@ void runLoop() {
 			printf("Shifting V[%d] to left", second_nibble);
 			v[second_nibble] = v[third_nibble];
 			if(v[second_nibble] & 0x80) {
-				r_flag = 1;
+				v[0xF] = 1;
 			}
 			else {
-				r_flag = 0;
+				v[0xF] = 0;
 			}
 			v[second_nibble] = v[second_nibble] << 1;
 			break;
@@ -354,7 +362,12 @@ void runLoop() {
         printf("Set i to %x\n", last_three_nibble);
         i = last_three_nibble;
         break;
-
+	  case 0xB:
+		i = last_three_nibble + v[0];
+		break;
+	  case 0xC:
+		v[second_nibble] = (rand() % 0x100) & second_byte;
+		break;
       case 0xD: // Draw case
         printf("Draw sprite at %d\n", i);
         v[0xF] = 0;
@@ -379,12 +392,31 @@ void runLoop() {
           }
         }
         break;
-
+	  case 0xF:
+		switch(second_byte) {
+			case 0x55: // Store 
+				for(uint8_t j = 0;j <= second_nibble;j++) {
+					memory[i+j] = v[j];
+				}
+				break;
+			case 0x65: // Load
+				for(uint8_t j = 0;j <= second_nibble;j++) {
+					v[j] = memory[i+j];  
+				}
+				break;
+      		default:
+        	printf("Unimplemented opcode\n");
+        	break;
+		}
+		break;
       default:
         printf("Unimplemented opcode\n");
         break;
+
+	
     }
 
+	printRegisters();
 
     SDL_RenderClear(screen.renderer);
     for(int x_pixel = 0; x_pixel < DISPLAY_WIDTH; x_pixel++) {
@@ -400,7 +432,7 @@ void runLoop() {
       }
     }
     SDL_RenderPresent(screen.renderer);
-    SDL_Delay(1);
+    SDL_Delay(16);
   }
   shutdownScreen();
 }
