@@ -33,6 +33,7 @@ uint8_t v[REGISTER_COUNT];
 uint8_t sound_timer;
 uint8_t delay_timer;
 
+
 uint8_t font[] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -106,6 +107,64 @@ void loadROM(FILE *rom_file) {
   }
 }
 
+int ScancodeToChip(int scancode) {
+  int ret_val;
+  switch(scancode) {
+      case SDL_SCANCODE_1:
+        ret_val = 0x1;
+        break; 
+      case SDL_SCANCODE_2:
+        ret_val = 0x2;
+        break;
+      case SDL_SCANCODE_3:
+        ret_val = 0x3;
+        break;
+      case SDL_SCANCODE_4:
+        ret_val = 0xC;
+        break;
+      case SDL_SCANCODE_Q:
+        ret_val = 0x4;
+        break;
+      case SDL_SCANCODE_W:
+        ret_val = 0x5;
+        break;
+      case SDL_SCANCODE_E:
+        ret_val = 0x6;
+        break;
+      case SDL_SCANCODE_R:
+        ret_val = 0xD;
+        break;
+      case SDL_SCANCODE_A:
+        ret_val = 0x7;
+        break;
+      case SDL_SCANCODE_S:
+        ret_val = 0x8;
+        break;
+      case SDL_SCANCODE_D:
+        ret_val = 0x9;
+        break;
+      case SDL_SCANCODE_F:
+        ret_val = 0xE;
+        break;
+      case SDL_SCANCODE_Z:
+        ret_val = 0xA;
+        break;
+      case SDL_SCANCODE_X:
+        ret_val = 0x0;
+        break;
+      case SDL_SCANCODE_C:
+        ret_val = 0xB;
+        break;
+      case SDL_SCANCODE_V:
+        ret_val = 0xF;
+        break;
+      default: 
+        ret_val = -1;
+        break;
+  }
+  return ret_val;
+}
+
 void initializeScreen() {
 
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -171,8 +230,9 @@ void printRegisters() {
 void runLoop() {
   uint16_t curr_inst;
   int is_running = 1;
+  int input;
   while (is_running) {
-
+    input = -1;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
 
@@ -180,6 +240,14 @@ void runLoop() {
         is_running = 0;
         continue;
       }
+
+      switch( event.type) {
+        case SDL_KEYDOWN:
+          input = ScancodeToChip(event.key.keysym.scancode);
+          break;
+
+      }
+
     }
 
     curr_inst = memory[pc] << 8;
@@ -399,6 +467,36 @@ void runLoop() {
       break;
     case 0xF:
       switch (second_byte) {
+        case 0x1E:
+          i+=v[second_nibble];
+          break;
+        case 0x07: 
+          v[second_nibble] = delay_timer;
+          break;
+        case 0x15:
+          delay_timer = v[second_nibble];
+          break;
+        case 0x18:
+          sound_timer = v[second_nibble];
+          break;
+        case 0x0A:
+          if(input != -1) {
+            v[second_nibble] = input;
+          }
+          else {
+            pc-=2;
+          }
+
+	  case 0x33:
+    memory[i + 2] = v[second_nibble];
+		for(int j = 2;j >= 0;j--) {
+      if(j != 0) {
+        memory[i + j - 1] = memory[i + j] / 10;
+      }
+			memory[i + j] = memory[i + j] % 10;
+
+		}			
+		break;
       case 0x55: // Store
         for (uint8_t j = 0; j <= second_nibble; j++) {
           memory[i + j] = v[j];
