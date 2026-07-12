@@ -241,13 +241,20 @@ void runLoop() {
         continue;
       }
 
-      switch( event.type) {
-        case SDL_KEYDOWN:
-          input = ScancodeToChip(event.key.keysym.scancode);
-          break;
-
+      if(event.type == SDL_KEYDOWN ) {
+        input = ScancodeToChip(event.key.keysym.scancode);
       }
+      else if(event.type == SDL_KEYUP && ScancodeToChip(event.key.keysym.scancode) == input) {
+        input = -1;
+      }
+    }
 
+    // Decrement timers
+    if(delay_timer > 0) {
+      delay_timer-=1;
+    }
+    if(sound_timer > 0) {
+      sound_timer-=1;
     }
 
     curr_inst = memory[pc] << 8;
@@ -465,6 +472,21 @@ void runLoop() {
         }
       }
       break;
+    case 0xE:
+      switch (second_byte) {
+          case 0x9E:
+            if(input == v[second_nibble]) {
+                pc+=2;
+            }
+            break;
+
+          case 0xA1:
+            if(input != v[second_nibble]) {
+                pc+=2;
+            }
+            break;
+
+      }
     case 0xF:
       switch (second_byte) {
         case 0x1E:
@@ -486,6 +508,10 @@ void runLoop() {
           else {
             pc-=2;
           }
+          break;
+        case 0x29:
+          i = FONT_START + (5 * v[second_nibble]);
+          break;
 
 	  case 0x33:
     memory[i + 2] = v[second_nibble];
